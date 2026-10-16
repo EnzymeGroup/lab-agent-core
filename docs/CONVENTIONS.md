@@ -106,6 +106,9 @@ No checker means `not_checked`. A successful model response never implies passed
 delivery. `run.json` records the input, native session reference, output paths and
 states. Its `model` pair records the final responding model when available.
 Native Pi JSONL owns the conversation; Core does not duplicate transcripts.
+Run-record writes use an atomic file replacement so concurrent readers see
+complete JSON. This does not add a cross-process writer lock or a crash-recovery
+engine; callers must still coordinate concurrent operations on the same run.
 
 The checker command is an argv array, executed without a shell in the project
 root. It receives `AGENT_ROOT`, `AGENT_RUN_DIR`, `AGENT_OUTPUT_DIR` and

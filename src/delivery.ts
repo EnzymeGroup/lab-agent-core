@@ -1,6 +1,6 @@
 import { spawn } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
-import { lstat, mkdir, open, readFile, readdir, realpath, rm, writeFile } from 'node:fs/promises';
+import { lstat, mkdir, open, readFile, readdir, realpath, rename, rm, writeFile } from 'node:fs/promises';
 import { isAbsolute, join, relative, resolve, sep } from 'node:path';
 import type { AgentConfig } from './config.js';
 
@@ -30,7 +30,15 @@ export async function writeRun(run: RunRecord): Promise<void> {
     if ((error as NodeJS.ErrnoException).code === 'ENOENT') return undefined;
     throw error;
   }))?.isSymbolicLink()) throw new Error('run.json must not be a symlink.');
-  await writeFile(join(run.directory, 'run.json'), `${JSON.stringify(run, null, 2)}\n`);
+  // Readers (including the task page) must see a complete old or new record.
+  const temporary = join(run.directory, `.run-${randomUUID()}.tmp`);
+  try {
+    await writeFile(temporary, `${JSON.stringify(run, null, 2)}\n`, { flag: 'wx' });
+    await rename(temporary, join(run.directory, 'run.json'));
+  } catch (error) {
+    await rm(temporary, { force: true });
+    throw error;
+  }
 }
 
 export async function readRun(root: string, runDirectory: string): Promise<RunRecord> {

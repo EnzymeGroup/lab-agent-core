@@ -6,6 +6,7 @@ import { mkdtemp, mkdir, readFile, readdir, rm, symlink, writeFile } from 'node:
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { setImmediate as yieldTurn } from 'node:timers/promises';
 import { ProjectTrustStore } from '@earendil-works/pi-coding-agent';
 import { createAgent, RunError } from '../../dist/index.js';
 import { createRun, writeRun, checkRun } from '../../dist/delivery.js';
@@ -115,6 +116,26 @@ test('output symlinks fail checks and checker log symlinks never overwrite their
   await rm(join(run.directory, 'output'), { recursive: true });
   await symlink(root, join(run.directory, 'output'));
   await assert.rejects(checkRun(config, run.directory), /output.*symlink/);
+});
+
+test('concurrent record readers never observe a partially written JSON checkpoint', async t => {
+  const { root } = await setup(t);
+  const run = await createRun(root, 'Concurrent readers', { id: 'native' });
+  run.execution = 'completed'; await writeRun(run);
+  let done = false;
+  const writer = (async () => {
+    try {
+      for (let i = 0; i < 20; i++) { run.text = String(i).repeat(200000); await writeRun(run); }
+    } finally { done = true; }
+  })();
+  try {
+    while (!done) {
+      const record = JSON.parse(await readFile(join(run.directory, 'run.json'), 'utf8'));
+      assert.equal(record.execution, 'completed');
+      await yieldTurn();
+    }
+  } finally { await writer; }
+  assert.ok(!(await readdir(run.directory)).some(name => name.endsWith('.tmp')));
 });
 
 test('native MCP is shared by SDK/CLI, inspect reports real discovery, disabling follows Pi settings', async t => {

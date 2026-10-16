@@ -12,7 +12,7 @@ native tools, filesystem, subprocesses and upstream UI.
 | Check | Result |
 | --- | --- |
 | TypeScript type checking and build | Passed |
-| Runtime/config/delivery/model-selection/boundary tests | 30 passed |
+| Runtime/config/delivery/model-selection/boundary tests | 31 passed |
 | Packed-package consumers | TS, Python and documented sequence example passed (4 test-runner entries including parent suite) |
 | Published Pi Web integration | 1 passed |
 | Core task HTTP integration | 1 passed |
@@ -47,6 +47,8 @@ factories and the project's `.pi/mcp.json`. Tests verify explicit trust before
 config evaluation, revocation, failed RunRecord JSON, canonical run boundaries,
 symlink rejection, MCP shutdown, native exclusions/replacements and inspect
 without model requests. A mismatched SDK/process MCP directory fails explicitly.
+Run records are replaced atomically; concurrent readers are checked against
+repeated writes so polling cannot observe partially written JSON checkpoints.
 
 Task HTTP coverage submits the real `agent.run()` path, reads run/check records,
 downloads actual output, rechecks without inference, records model errors,
