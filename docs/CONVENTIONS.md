@@ -140,7 +140,10 @@ the configured project root; `--root` selects the project configuration. The
 `--json` on `run`/`check` prints one final RunRecord when a run exists.
 SDK execution failures throw `RunError` with `.run` and the original `.cause`.
 CLI failures after creation print that failed record and keep a nonzero exit code.
-Setup errors before run creation print `{ "error": { "message": "..." } }`. CLI exit status is `0` for
+Setup errors before run creation print `{ "error": { "message": "..." } }`.
+The setup envelope's `error` is an object; a failed RunRecord's `error` is a
+string and the record still contains its ID, directory and execution state.
+CLI exit status is `0` for
 completed passed/not-checked runs, `2` for partial, `1` for failure and `130` for an
 aborted run. Error messages are also printed to stderr. Rechecking a failed
 execution does not change its execution status.

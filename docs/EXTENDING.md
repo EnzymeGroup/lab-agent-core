@@ -63,7 +63,7 @@ completed = subprocess.run(
 if completed.returncode not in (0, 1, 2) or not completed.stdout.strip():
     raise RuntimeError(completed.stderr)
 result = json.loads(completed.stdout)
-if "error" in result:
+if isinstance(result.get("error"), dict):
     raise RuntimeError(result["error"]["message"])
 print(result["execution"], result["delivery"], result["artifacts"])
 raise SystemExit(completed.returncode)

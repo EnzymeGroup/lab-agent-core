@@ -109,7 +109,9 @@ try { console.log(JSON.stringify(await agent.run('Produce TS result'))); } final
     await cp(join(root, 'node_modules/lab-agent-core/examples/sequence-summary'), root, { recursive: true });
     const skill = '.agents/skills/sequence-summary/SKILL.md';
     const quote = value => `'${value.replaceAll("'", "'\\''")}'`;
+    let rejectInference = false;
     const server = await startModelServer((request, index) => {
+      if (rejectInference) return { status: 400, text: 'Expected Python driver model failure' };
       if (index === 0) return { toolCalls: [{ name: 'read', arguments: { path: skill } }] };
       if (index === 1) return { toolCalls: [{ name: 'bash', arguments: {
         command: `python3 scripts/summarize.py data/sequences.fasta ${quote(join(outputDirectory(request), 'summary.json'))}`,
@@ -144,6 +146,20 @@ try { console.log(JSON.stringify(await agent.run('Produce TS result'))); } final
     await rm(reportFile);
     assert.equal((await recheck()).code, 1, 'missing report must also fail independently');
     assert.equal(server.requests.length, requestsBefore, 'rechecks must not call a model');
+    rejectInference = true;
+    const failed = await command('python3', ['workflows/run.py'], { cwd: root, env });
+    assert.equal(failed.code, 1);
+    const failedRun = JSON.parse(failed.stdout);
+    assert.equal(failedRun.execution, 'failed');
+    assert.match(failedRun.error, /Expected Python driver model failure/);
+    assert.doesNotMatch(failed.stderr, /TypeError|Traceback/);
+    await mkdir(join(root, '.pi'), { recursive: true });
+    await writeFile(join(root, '.pi/settings.json'), JSON.stringify({ defaultProvider: 'fixture', defaultModel: 'missing' }));
+    const setupFailure = await command('python3', ['workflows/run.py'], { cwd: root, env });
+    assert.equal(setupFailure.code, 1);
+    assert.equal(setupFailure.stdout, '');
+    assert.match(setupFailure.stderr, /Unknown model/);
+    assert.doesNotMatch(setupFailure.stderr, /TypeError|Traceback/);
   });
 
   await t.test('Python script via native bash tool and CLI run/check JSON', async t => {

@@ -39,6 +39,8 @@ discovers its Skill, reads it with Pi's native tool, runs its Python CLI workflo
 and checks actual source IDs/count/lengths. Tampered lengths and missing output
 both fail rechecking without making model calls. CLI creation, JSON output,
 partial-delivery exit status, and invalid invocation are also exercised.
+The shipped Python driver also handles an actual model-request failure and a
+pre-run unknown-model error, preserving failure status without a Python traceback.
 
 UI tests cover real chat, tool SSE events, extension discovery, persisted sessions
 after restart, files, uploads/downloads, generation abort and process shutdown.
