@@ -20,7 +20,7 @@ so credential provisioning does not consume the task budget.
 | Find where to change instructions, add a Skill and call a tool | 15 minutes | Paths found, questions asked, wrong turns |
 | Create an independent project and run a checked task | 30 minutes with credentials ready | Commands, run path and delivery result |
 | Call Python and open the UI without reading Core source | During the exercise | Whether source inspection or coaching was needed |
-| Explain whether UI chat automatically runs delivery checks | End of exercise | Participant's own explanation |
+| Explain task-page delivery versus native Pi Web chat | End of exercise | Participant's own explanation |
 
 Let participants work from the docs. Record help rather than silently coaching;
 separate installation/network/model failures from documentation problems.

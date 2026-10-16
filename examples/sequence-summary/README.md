@@ -26,6 +26,8 @@ and `__pycache__/` to that project's `.gitignore` if needed.
 Configure [provider credentials](../../docs/MODELS.md#built-in-providers), then:
 
 ```sh
+npx lab-agent trust
+npx lab-agent inspect --json
 npx lab-agent models
 npx lab-agent use PROVIDER MODEL_ID
 ```
@@ -80,8 +82,9 @@ npm run check -- runs/<id> --json
 npm run ui
 ```
 
-Rechecking does not call a model. Browser chat is for exploration; it does not
-automatically run this check or create a Core task delivery.
+Rechecking does not call a model. The Task deliveries page can submit this same
+task and show its files and checks. Its Pi Web chat link is for native exploration;
+chat does not automatically create Core deliveries.
 
 ## What to change next
 

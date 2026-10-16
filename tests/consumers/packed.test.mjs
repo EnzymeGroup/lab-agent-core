@@ -1,3 +1,4 @@
+import { ProjectTrustStore } from '@earendil-works/pi-coding-agent';
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { execFile } from 'node:child_process';
@@ -69,6 +70,7 @@ test('packed package works in independent TS and Python projects', { timeout: 24
     t.after(() => server.close());
     const agentDir = join(root, '.test-agent');
     await writeModelConfig(agentDir, server.baseUrl);
+    new ProjectTrustStore(agentDir).set(root, true);
     await mkdir(join(root, '.pi/extensions'), { recursive: true });
     await writeFile(join(root, '.pi/extensions/result.ts'), `import { writeFile } from 'node:fs/promises';
 import { Type } from '@earendil-works/pi-ai';
@@ -117,6 +119,7 @@ try { console.log(JSON.stringify(await agent.run('Produce TS result'))); } final
     t.after(() => server.close());
     const agentDir = join(scratch, 'example-model-config');
     await writeModelConfig(agentDir, server.baseUrl);
+    new ProjectTrustStore(agentDir).set(root, true);
     const env = { ...process.env, PI_CODING_AGENT_DIR: agentDir };
     const run = JSON.parse(success(await command('python3', ['workflows/run.py'], { cwd: root, env })));
     assert.equal(run.execution, 'completed');
@@ -154,6 +157,7 @@ try { console.log(JSON.stringify(await agent.run('Produce TS result'))); } final
     t.after(() => server.close());
     const agentDir = join(root, '.test-agent');
     await writeModelConfig(agentDir, server.baseUrl);
+    new ProjectTrustStore(agentDir).set(root, true);
     const env = { ...process.env, PI_CODING_AGENT_DIR: agentDir };
     await writeFile(join(root, 'compute.py'), `import json, sys\nfrom pathlib import Path\n(Path(sys.argv[1]) / 'result.json').write_text(json.dumps({'value': 6 * 7}))\nprint('Computed 42')\n`);
     await writeFile(join(root, 'check.py'), checker);

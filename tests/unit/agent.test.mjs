@@ -4,7 +4,7 @@ import { mkdtemp, mkdir, readFile, readdir, rm, writeFile } from 'node:fs/promis
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { Type } from '@earendil-works/pi-ai';
-import { SessionManager } from '@earendil-works/pi-coding-agent';
+import { ProjectTrustStore, SessionManager } from '@earendil-works/pi-coding-agent';
 import { createAgent, defineAgent } from '../../dist/index.js';
 import { startModelServer, writeModelConfig, lastUserText } from '../fixtures/model-server.mjs';
 
@@ -13,6 +13,7 @@ async function setup(t, handler) {
   const server = await startModelServer(handler);
   const agentDir = join(root, '.test-agent');
   await writeModelConfig(agentDir, server.baseUrl);
+  new ProjectTrustStore(agentDir).set(root, true);
   t.after(async () => { await server.close(); await rm(root, { recursive: true, force: true }); });
   return { root, server, native: { agentDir, sessionManager: SessionManager.create(root, join(agentDir, 'sessions')) } };
 }

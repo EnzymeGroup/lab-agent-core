@@ -14,5 +14,7 @@ completed = subprocess.run(
 if not completed.stdout.strip():
     raise SystemExit(completed.stderr.strip() or "Task returned no run record")
 record = json.loads(completed.stdout)
+if "error" in record:
+    raise SystemExit(record["error"]["message"])
 print(json.dumps(record, indent=2))
 raise SystemExit(completed.returncode)

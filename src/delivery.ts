@@ -1,7 +1,7 @@
 import { spawn } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
-import { mkdir, open, readFile, readdir, rm, writeFile } from 'node:fs/promises';
-import { join, resolve } from 'node:path';
+import { lstat, mkdir, open, readFile, readdir, realpath, rm, writeFile } from 'node:fs/promises';
+import { isAbsolute, join, relative, resolve, sep } from 'node:path';
 import type { AgentConfig } from './config.js';
 
 export type DeliveryStatus = 'not_checked' | 'passed' | 'partial' | 'failed';
@@ -26,13 +26,44 @@ export interface RunRecord {
 }
 
 export async function writeRun(run: RunRecord): Promise<void> {
+  if ((await lstat(join(run.directory, 'run.json')).catch(error => {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') return undefined;
+    throw error;
+  }))?.isSymbolicLink()) throw new Error('run.json must not be a symlink.');
   await writeFile(join(run.directory, 'run.json'), `${JSON.stringify(run, null, 2)}\n`);
+}
+
+export async function readRun(root: string, runDirectory: string): Promise<RunRecord> {
+  const directory = await resolveRunDirectory(root, runDirectory);
+  if (!(await lstat(join(directory, 'run.json'))).isFile()) throw new Error('run.json must be a regular file.');
+  return { ...JSON.parse(await readFile(join(directory, 'run.json'), 'utf8')), directory };
+}
+
+export function isWithin(parent: string, path: string): boolean {
+  const part = relative(parent, path);
+  return !!part && part !== '..' && !part.startsWith(`..${sep}`) && !isAbsolute(part);
+}
+
+/** Resolve only actual run directories inside this project's own runs directory. */
+export async function resolveRunDirectory(root: string, runDirectory: string): Promise<string> {
+  const project = await realpath(root);
+  const expected = join(project, 'runs');
+  const runs = await realpath(expected);
+  const directory = await realpath(resolve(root, runDirectory));
+  if (runs !== expected || !isWithin(runs, directory)) {
+    throw new Error('Run directory must be inside this project\'s runs/; external and symlink escapes are not allowed.');
+  }
+  return directory;
 }
 
 export async function createRun(root: string, task: string, session: RunRecord['session'], model?: RunRecord['model']): Promise<RunRecord> {
   const startedAt = new Date().toISOString();
   const id = `${startedAt.replace(/[:.]/g, '-')}-${randomUUID().slice(0, 8)}`;
-  const directory = resolve(root, 'runs', id);
+  const project = await realpath(root);
+  const runs = join(project, 'runs');
+  await mkdir(runs, { recursive: true });
+  if (await realpath(runs) !== runs) throw new Error('Project runs/ must not be a symlink.');
+  const directory = join(runs, id);
   await mkdir(join(directory, 'output'), { recursive: true });
   const run: RunRecord = { id, directory, task, startedAt, execution: 'running', delivery: 'not_checked', session, model, artifacts: [] };
   await writeRun(run);
@@ -42,6 +73,12 @@ export async function createRun(root: string, task: string, session: RunRecord['
 /** Only actual regular output files are listed; no content hashing or transcript copy. */
 export async function listArtifacts(directory: string): Promise<string[]> {
   const outputRoot = join(directory, 'output');
+  const target = await realpath(outputRoot).catch(error => {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') return undefined;
+    throw error;
+  });
+  if (!target) return [];
+  if (target !== join(await realpath(directory), 'output')) throw new Error('Run output/ must not be a symlink.');
   const entries = await readdir(outputRoot, { withFileTypes: true, recursive: true }).catch(error => {
     if ((error as NodeJS.ErrnoException).code === 'ENOENT') return [];
     throw error;
@@ -65,6 +102,7 @@ async function executeCheck(config: AgentConfig, directory: string): Promise<Che
   const validation = config.validation!;
   const checkFile = join(directory, 'check.json');
   await rm(checkFile, { force: true });
+  await rm(join(directory, 'validation.log'), { force: true });
   const log = await open(join(directory, 'validation.log'), 'w');
   try {
     const result = await new Promise<{ code: number | null; timedOut: boolean }>((accept, reject) => {
@@ -111,8 +149,8 @@ async function executeCheck(config: AgentConfig, directory: string): Promise<Che
 
 /** Recheck a completed run without calling a model. */
 export async function checkRun(config: AgentConfig, runDirectory: string): Promise<RunRecord> {
-  const directory = resolve(config.root, runDirectory);
-  const run = JSON.parse(await readFile(join(directory, 'run.json'), 'utf8')) as RunRecord;
+  const run = await readRun(config.root, runDirectory);
+  const directory = run.directory;
   if (run.execution === 'running') throw new Error('Cannot check a run while it is still running.');
   run.directory = directory;
   run.artifacts = await listArtifacts(directory);

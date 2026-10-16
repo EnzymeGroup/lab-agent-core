@@ -1,8 +1,9 @@
 # lab-agent-core
 
-Build a dedicated lab Agent in its own project using Pi SDK. Get shared startup,
-model configuration, browser chat and task delivery checks; add your own Skills,
-Python scripts and scientific acceptance rules.
+A Pi-based execution and delivery kit for independent lab Agents. Run tasks
+through a shared CLI, SDK or task page; get recorded outputs, clear failure
+results and independent delivery checks. Add your own Skills, Python scripts
+and scientific acceptance rules using Pi's native interfaces.
 
 **Pi executes models and tools. Core organizes runs and checks. Your project
 supplies the task knowledge and decides what a usable result is.**
@@ -46,6 +47,7 @@ Existing Pi credentials are reused. For a new provider, first follow the
 [credential setup](docs/MODELS.md#built-in-providers); then run inside `my-agent/`:
 
 ```sh
+npx lab-agent trust                         # Review the project, then trust its code
 npx lab-agent models
 npx lab-agent use PROVIDER MODEL_ID
 npm run run -- "Read AGENTS.md and write a short project summary to report.md"
@@ -61,8 +63,10 @@ is `not_checked` even when execution completes.
 npm run ui
 ```
 
-Open the printed local URL. Browser chat uses Pi Web and native sessions;
-**automatic delivery checks run through `lab-agent run`, not through chat**.
+Open the printed **Task deliveries** URL. Submit a task, download its files,
+inspect checks or recheck a run. This page calls the same `agent.run()` as the CLI.
+Its **Open Pi Web chat** link opens native conversation mode; chat itself does
+not automatically create Core runs or check deliveries.
 For a remote server, see [accessing the UI](docs/QUICKSTART.md#6-open-the-ui).
 
 ## What should I change?
@@ -78,7 +82,10 @@ For a remote server, see [accessing the UI](docs/QUICKSTART.md#6-open-the-ui).
 | Configure an endpoint or credentials | [Provider/file lookup](docs/MODELS.md#native-files-and-precedence) |
 | Define acceptance checks | `checks/` + `validation.command` in `agent.config.ts` |
 | Recheck an existing delivery | `npm run check -- runs/<id>` |
-| Explore through browser chat | `npm run ui` |
+| Submit tasks or inspect deliveries in a browser | `npm run ui` → Task deliveries |
+| Explore through native browser chat | Task page → Open Pi Web chat |
+| See what is actually loaded | `lab-agent inspect --json` |
+| Configure MCP servers | Native `.pi/mcp.json` — [capability rules](docs/CONVENTIONS.md#native-capability-loading) |
 
 ## Task run or conversation?
 
@@ -86,7 +93,8 @@ For a remote server, see [accessing the UI](docs/QUICKSTART.md#6-open-the-ui).
 | --- | --- | --- | --- |
 | `lab-agent run` / `agent.run(task)` | Deliver a recorded, checkable task | Yes | After completed execution |
 | `agent.session.prompt(text)` | Use the native Pi conversation API | No | No |
-| `lab-agent ui` | Explore and chat in Pi Web | No | No |
+| Task page launched by `lab-agent ui` | Submit tasks and inspect deliveries | Yes | After completed execution |
+| Pi Web chat linked from the task page | Explore a native conversation | No | No |
 
 ## Start from a complete Python example
 

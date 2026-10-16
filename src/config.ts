@@ -1,5 +1,12 @@
 import { resolve } from 'node:path';
 import { createJiti } from 'jiti';
+import { getAgentDir, ProjectTrustStore } from '@earendil-works/pi-coding-agent';
+
+export function requireProjectTrust(root: string, agentDir = getAgentDir()): void {
+  if (new ProjectTrustStore(agentDir).get(resolve(root)) !== true) {
+    throw new Error(`Project is not trusted: ${resolve(root)}. Review its config, extensions and checker, then run lab-agent trust --root ${JSON.stringify(resolve(root))}.`);
+  }
+}
 
 export interface AgentConfig {
   root: string;

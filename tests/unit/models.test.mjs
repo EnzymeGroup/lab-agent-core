@@ -1,3 +1,4 @@
+import { ProjectTrustStore } from '@earendil-works/pi-coding-agent';
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { execFile } from 'node:child_process';
@@ -24,6 +25,7 @@ async function setup(t) {
   const agentDir = join(directory, 'agent');
   await mkdir(join(root, '.pi'), { recursive: true });
   await mkdir(agentDir);
+  new ProjectTrustStore(agentDir).set(root, true);
   const servers = await Promise.all([startModelServer(), startModelServer()]);
   t.after(async () => {
     await Promise.all(servers.map(server => server.close()));

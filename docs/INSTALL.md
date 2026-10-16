@@ -45,5 +45,7 @@ npm install
 ```
 
 `npx create-lab-agent` refers to a different package name and is not the installer
-for this project. Configure a provider before inference; continue with the
+for this project. Review the new project, then run `npx lab-agent trust` in it. Trust uses Pi's
+native store and is required before project config/extension execution.
+Configure a provider before inference; continue with the
 [Quickstart](QUICKSTART.md).

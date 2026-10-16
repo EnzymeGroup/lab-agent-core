@@ -32,6 +32,14 @@ export function requireModel(session: AgentSession, provider: string, id: string
   return model;
 }
 
+export async function selectModel(session: AgentSession, provider?: string | null, model?: string | null) {
+  if (provider == null && model == null) return;
+  if (!provider?.trim() || !model?.trim()) {
+    throw new Error('Model selection requires both a provider and a model. Use lab-agent use PROVIDER MODEL.');
+  }
+  await session.setModel(requireModel(session, provider, model));
+}
+
 export function listModels(session: AgentSession, provider?: string, all = false) {
   const models = session.modelRuntime.getModels(provider);
   return models.map(model => ({

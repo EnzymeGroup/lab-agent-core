@@ -29,8 +29,9 @@ compatible pinned versions:
 npm install @earendil-works/pi-ai@1.2.0 @earendil-works/pi-coding-agent@1.2.0
 ```
 
-Start Core only in trusted projects: it loads the project's native resources, and
-the UI launcher records that project as trusted in Pi. Core does not supply an
+Review project code and run `npx lab-agent trust` before startup. SDK callers
+can use Pi's native `ProjectTrustStore` or explicitly pass a trusted native
+`SettingsManager`. The UI launcher does not grant trust automatically. Core does not supply an
 additional tool or plugin interface.
 
 For a TypeScript workflow, save `workflow.ts` and run `node workflow.ts`:
@@ -62,7 +63,10 @@ completed = subprocess.run(
 if completed.returncode not in (0, 1, 2) or not completed.stdout.strip():
     raise RuntimeError(completed.stderr)
 result = json.loads(completed.stdout)
+if "error" in result:
+    raise RuntimeError(result["error"]["message"])
 print(result["execution"], result["delivery"], result["artifacts"])
+raise SystemExit(completed.returncode)
 ```
 
 For a persistent Python-controlled session, use

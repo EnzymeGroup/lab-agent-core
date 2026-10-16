@@ -11,13 +11,13 @@ Agent, start with the [Quickstart](QUICKSTART.md).
 
 - Node >=22.19; Pi packages exactly 1.2.0; Pi Web 0.12.2. Pi's sibling packages are pinned together because they otherwise use caret dependencies. UI and Core must share the same native session format.
 - `defineAgent({root, validation?})`; `createAgent(config, nativeOptions?)`. Native options are Pi `CreateAgentSessionOptions` except `cwd`, which is the project root. UI uses native project configuration, not programmatic in-memory overrides.
-- Preserve SDK native default tools and project extensions; do not recreate CLI-specific built-in MCP/codemode initialization. Advanced callers can supply native resourceLoader. Async `dispose()` awaits abort and native extension shutdown before invalidating the session.
+- Supply Pi's native MCP/codemode/tool-search factories through the default resource loader and honor native exclusions/replacements. No custom MCP protocol or tool registry. Advanced callers can supply a native resourceLoader. Async `dispose()` awaits abort and native extension shutdown before invalidating the session.
 - `run(task)` creates `runs/<timestamp>-<random-id>/output`, prompts Pi with that location, waits for native `prompt()` completion, records output files, then invokes the optional checker. No custom agent loop or retry policy.
 - Run execution (`running/completed/failed/aborted`) and delivery (`not_checked/passed/partial/failed`) are independent. No checker means `not_checked`, never implicit success.
 - Checker runs an argv array without a shell, with project cwd and `AGENT_ROOT`, `AGENT_RUN_DIR`, `AGENT_OUTPUT_DIR`, `AGENT_CHECK_FILE`. It writes `check.json` with status, checks and issues. Nonzero exit, timeout, missing or malformed report means failed delivery. Rechecks remove the old report first.
 - Native Pi JSONL remains the conversation/event source; Core stores only its run record and checker log, without duplicating the transcript or hashing outputs.
 - Runs on a session are sequential. Native session operations bypass automatic delivery checks. File-producing jobs and side-effect recovery remain the application's responsibility.
-- Pi Web runs on loopback, with the same Pi agent directory and a project cwd deep link. UI interaction does not invoke Core delivery automatically. Explicit check command is available for existing Core runs.
+- The local task page runs the Core delivery path and links to upstream Pi Web for native chat. Both listeners use loopback. Chat itself does not create Core delivery records.
 - Trusted local project only; no sandbox/multi-user service claim. SDK and UI cannot concurrently mutate the same session.
 
 Acceptance cases: real Pi runtime with a deterministic local HTTP model fixture; extensions, skills, tool execution, native persistence, packed external consumers, Python workflow, checker failures, and upstream UI endpoints. Real paid-provider inference is reported separately from these engineering checks.
@@ -38,6 +38,7 @@ flowchart TB
         RUN["Task lifecycle<br/>agent.ts"]
         DELIVERY["Outputs and checks<br/>delivery.ts"]
         UI["Web launcher<br/>ui.ts"]
+        TASKWEB["Task page + HTTP<br/>task-ui.ts"]
         RUN --> DELIVERY
     end
 
@@ -53,6 +54,8 @@ flowchart TB
     TASK --> RUN
     BROWSER --> UI
     UI --> WEB
+    UI --> TASKWEB
+    TASKWEB --> RUN
     RUN --> PI
     DELIVERY --> CHECK
     PI --> RESOURCES
@@ -61,15 +64,17 @@ flowchart TB
     classDef prod fill:#F3E8FF,stroke:#7C3AED,color:#581C87,stroke-width:1.5px,font-size:22px
     classDef step fill:#ECFEFF,stroke:#0891B2,color:#164E63,stroke-width:1.5px,font-size:22px
     class TASK,BROWSER start
-    class RUN,DELIVERY,UI prod
+    class RUN,DELIVERY,UI,TASKWEB prod
     class WEB,PI,CHECK,RESOURCES step
 ```
 
-There are two execution paths:
+There are three entry paths:
 
 - **Task run:** `lab-agent run` → `createAgent()` → `agent.run()` → native Pi
   execution → output indexing → optional delivery check.
-- **Browser chat:** `lab-agent ui` → upstream Pi Web → native Pi sessions. It
+- **Browser task:** task page → `task-ui.ts` → `createAgent()` / `agent.run()` →
+  the same run records, actual output files and configured checker.
+- **Browser chat:** task page's chat link → upstream Pi Web → native Pi sessions. It
   shares filesystem configuration and project resources, but does not call
   `agent.run()` or automatically create a Core run or invoke its checker.
 
@@ -78,9 +83,16 @@ There are two execution paths:
 There are two things to distinguish: **the HTTP server** and **the Agent execution
 engine**. Pi Web ships both browser assets and a Next.js HTTP backend. That backend
 uses Pi SDK in its server process. CLI runs call Pi SDK directly in the CLI
-process; they do not need an HTTP server.
+process; they do not need an HTTP server. The task page has a small local Node
+HTTP adapter in `task-ui.ts` that calls the Core API directly.
 
 ```text
+Browser task
+  Task page
+    → Core HTTP adapter (src/task-ui.ts)
+    → createAgent() → agent.run() → Pi execution
+    → delivery.ts → checker → shared run records and files
+
 Browser chat
   Browser
     → Pi Web HTTP API (local Next.js server, default port 30141)
@@ -105,12 +117,11 @@ The installed backend code is in these dependency directories:
 | `@earendil-works/pi-agent-core/dist/` | Model/tool execution loop |
 | `@earendil-works/pi-ai/dist/` | Model-provider adapters and streaming |
 
-These are installed upstream implementations. Our [ui.ts](../src/ui.ts) launches
-Pi Web's server; our [agent.ts](../src/agent.ts) calls Pi SDK for CLI/SDK task runs.
-**The browser's HTTP API currently belongs to Pi Web; it does not route through
-our `agent.run()` delivery lifecycle.** A browser button that runs application
-tasks with Core delivery checks would need an HTTP handler that calls
-`agent.run()`; that application endpoint is not implemented in v0.1.
+These are installed upstream implementations. Our [ui.ts](../src/ui.ts) starts
+Pi Web and the task listener. [task-ui.ts](../src/task-ui.ts) supplies Core's
+HTTP task routes; [agent.ts](../src/agent.ts) remains the common execution path.
+Pi Web itself is unchanged. The task page's native-chat link switches to Pi Web's
+separate backend and native session semantics.
 
 ### What happens during one task?
 
@@ -144,18 +155,20 @@ model to repair the result or resume an external scientific job.
 
 ## Where to find each feature
 
-These are **all nine source files** in this package. Start with `config.ts` for
+These are **all eleven source files** in this package. Start with `config.ts` for
 the small public contract, then `agent.ts` and `delivery.ts` for the task path.
 
 | Feature / question | File | What it does |
 | --- | --- | --- |
-| What can an application import? | [src/index.ts](../src/index.ts) | Public exports: configuration, Agent creation, run/check types and `checkRun()` |
-| What belongs in `agent.config.ts`? | [src/config.ts](../src/config.ts) | Defines `root` and optional checker command/timeout; loads the TypeScript config |
+| What can an application import? | [src/index.ts](../src/index.ts) | Public exports: configuration, Agent creation, `RunError`, run/check types and `checkRun()` |
+| What belongs in `agent.config.ts`? | [src/config.ts](../src/config.ts) | Defines the config, loads TypeScript, and provides the native-trust assertion |
 | How does a task start, finish or stop? | [src/agent.ts](../src/agent.ts) | Creates the native session, runs tasks, records failures, exposes `agent.session`, and cleans up |
 | Where are outputs and acceptance results stored? | [src/delivery.ts](../src/delivery.ts) | Creates run records, indexes output files, executes checkers and supports rechecking |
 | How do I inspect or change models? | [src/models.ts](../src/models.ts) | Reads native configuration, lists models, validates IDs and saves project/user defaults |
 | How are shell commands connected? | [src/cli.ts](../src/cli.ts) | Dispatches `run`, `check`, `ui`, `init`, `config`, `models`, `use`; handles run model precedence and exit codes |
-| Where is the browser UI implemented? | [src/ui.ts](../src/ui.ts) | Launches installed Pi Web for the project and forwards shutdown signals; UI implementation lives upstream |
+| How are the web listeners started? | [src/ui.ts](../src/ui.ts) | Starts the task listener and installed Pi Web, opens tasks and coordinates shutdown |
+| How do browser tasks reach Core? | [src/task-ui.ts](../src/task-ui.ts) | Small local HTTP adapter for run/check records and confined downloads; uses the public lifecycle |
+| What capabilities are actually loaded? | [src/inspect.ts](../src/inspect.ts) | Reads native resource/tool metadata and the MCP status command, without inference |
 | How is a new project generated? | [src/scaffold.ts](../src/scaffold.ts) | Copies the minimal template into an empty directory and sets its name/dependency |
 | What is `create-lab-agent`? | [src/create.ts](../src/create.ts) | Small executable calling the same scaffolder as `lab-agent init` |
 
@@ -169,7 +182,10 @@ the small public contract, then `agent.ts` and `delivery.ts` for the task path.
 | [tests/unit/delivery.test.mjs](../tests/unit/delivery.test.mjs) | Checker reports, timeouts, rechecks and output indexing |
 | [tests/unit/models.test.mjs](../tests/unit/models.test.mjs) | Configuration, defaults, model precedence and rejected selections |
 | [tests/consumers/packed.test.mjs](../tests/consumers/packed.test.mjs) | Installs the actual tarball in independent TypeScript/Python consumer projects |
-| [tests/ui.test.mjs](../tests/ui.test.mjs) | Runs real Pi Web and exercises chat, tools, sessions, files and project defaults |
+| [tests/ui.test.mjs](../tests/ui.test.mjs) | Real Pi Web chat/MCP, native sessions, files and shared launcher cleanup |
+| [tests/task-ui.test.mjs](../tests/task-ui.test.mjs) | HTTP task submission, shared delivery, files, failed runs, rechecks and request boundaries |
+| [tests/unit/runtime.test.mjs](../tests/unit/runtime.test.mjs) | Trust, JSON errors, path boundaries, native MCP, inspection and cleanup |
+| [templates/tasks.html](../templates/tasks.html) | Dependency-free task page with responsive layout and safe text rendering |
 | [tests/fixtures/model-server.mjs](../tests/fixtures/model-server.mjs) | Deterministic local model endpoint for integration tests; not evidence of real-model reasoning quality |
 | [package.json](../package.json), [package-lock.json](../package-lock.json) | Public package entry points, commands and pinned dependency resolution |
 | [tsconfig.json](../tsconfig.json), [.gitignore](../.gitignore), [LICENSE](../LICENSE) | TypeScript build settings, generated-file exclusions and MIT license |

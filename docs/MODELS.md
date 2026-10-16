@@ -6,7 +6,8 @@ provider credentials or a second model configuration format.
 
 ## Choose a model
 
-Run these commands in an initialized project. `--root /path/to/project` selects
+Run `lab-agent trust` after reviewing the project, then use these commands in
+the initialized project. `--root /path/to/project` selects
 another project's configuration.
 
 ```sh
@@ -69,7 +70,8 @@ is not promised to leave the session file byte-for-byte unchanged. `run.json`
 includes `model: {provider, id}` and records the final responding model when a
 response exists, which can differ from a virtual/routing model selected initially.
 
-Direct SDK creation and Pi Web retain native selection behavior: a saved/default
+The task page uses the same exact default-selection check as CLI tasks.
+Direct SDK creation and native Pi Web chat retain native selection behavior: a saved/default
 model without configured authentication can fall back to another available
 model, or leave the session without one. Use an explicit native `setModel` call
 in SDK code when exact selection is required. Authentication being configured

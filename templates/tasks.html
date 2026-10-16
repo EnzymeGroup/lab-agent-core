@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lab Agent · Tasks</title>
+<link rel="icon" href="data:,">
+<style>
+:root{color-scheme:light;--bg:#f7f8f6;--paper:#fff;--ink:#202720;--muted:#596359;--line:#d9dfd7;--accent:#245538}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.55 system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+main{max-width:1220px;margin:auto;padding:40px 32px 64px}header{display:flex;align-items:start;justify-content:space-between;gap:24px;padding-bottom:28px;border-bottom:1px solid var(--line)}h1{margin:0;font-size:30px;font-weight:650;letter-spacing:-.6px}h2{font-size:20px;margin:0 0 16px}h3{font-size:16px;margin:24px 0 8px}p{margin:8px 0}a{color:var(--accent);text-underline-offset:3px}header a{padding:10px 0;white-space:nowrap}button,a,summary{cursor:pointer}button,textarea{font:inherit}button{border:1px solid var(--line);background:white;color:var(--ink);border-radius:5px;min-height:44px;padding:9px 16px}button:hover:not(:disabled){background:#edf1eb}button:disabled{cursor:default;opacity:.6}button.primary{background:var(--accent);border-color:var(--accent);color:#fff}button.primary:hover:not(:disabled){background:#1b432b}:focus-visible{outline:3px solid #b47a16;outline-offset:3px}textarea{display:block;width:100%;min-height:140px;resize:vertical;background:var(--paper);border:1px solid #aab5a7;border-radius:5px;padding:12px;color:var(--ink);margin:8px 0 12px}label{font-weight:600}.muted{color:var(--muted);font-size:14px}.path{overflow-wrap:anywhere;font-family:ui-monospace,monospace}.layout{display:grid;grid-template-columns:minmax(280px, .85fr) minmax(0,1.15fr);gap:40px;margin-top:32px}.actions{display:flex;justify-content:space-between;align-items:center;gap:16px}.error{color:#9c2727;white-space:pre-wrap;overflow-wrap:anywhere}.run-list{margin-top:36px}.run{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px;text-align:left;width:100%;border-radius:0;border:0;border-top:1px solid var(--line);padding:14px 4px;min-height:76px}.run[aria-pressed=true]{background:#e9eee6;border-left:3px solid var(--accent);padding-left:12px}.run strong{font-weight:550;display:block;white-space:normal;overflow-wrap:anywhere}.run small{display:block;color:var(--muted);margin-top:3px}.states{text-align:right;font-size:13px;white-space:nowrap}.states span{display:block}.detail{padding:24px;background:var(--paper);border:1px solid var(--line);min-width:0}.detail-top{display:flex;align-items:start;justify-content:space-between;gap:12px}.detail h2{margin-bottom:4px}.task-text{white-space:pre-wrap;overflow-wrap:anywhere;margin:16px 0 24px}dl{display:grid;grid-template-columns:1fr 1fr;gap:12px;border-block:1px solid var(--line);padding:16px 0}dt{font-size:13px;color:var(--muted)}dd{margin:2px 0 0;font-weight:600}.passed{color:#245538}.failed{color:#9c2727}pre{font:13px/1.65 ui-monospace,SFMono-Regular,Consolas,monospace;white-space:pre-wrap;overflow-wrap:anywhere;background:#f5f6f3;padding:14px;max-height:380px;overflow:auto}ul{padding-left:22px}li{margin:6px 0}details{margin-top:24px}summary{min-height:44px;display:flex;align-items:center;color:var(--muted);font-size:14px}summary:before{content:"▸";margin-right:8px}details[open] summary:before{content:"▾"}.empty{padding:20px 0;color:var(--muted)}[hidden]{display:none!important}
+@media(max-width:760px){main{padding:24px 18px 40px}header{display:block}header a{display:inline-block;margin-top:8px}.layout{grid-template-columns:1fr;gap:24px;margin-top:24px}.detail{padding:18px}.run-list{margin-top:28px}h1{font-size:27px}}
+@media(prefers-color-scheme:dark){:root{color-scheme:dark;--bg:#171c19;--paper:#202722;--ink:#e5ebe5;--muted:#b0bcb1;--line:#445047;--accent:#a2d3ad}button{background:var(--paper);color:var(--ink)}button:hover:not(:disabled),.run[aria-pressed=true]{background:#303e33}button.primary{background:#a2d3ad;color:#14271a;border-color:#a2d3ad}button.primary:hover:not(:disabled){background:#b9e4c2}pre{background:#18201a}.passed{color:#a2d3ad}.failed,.error{color:#ffaaaa}}
+</style>
+</head>
+<body>
+<main>
+<header><div><h1>Lab Agent · Tasks</h1><p class="muted path" id="project">Loading project…</p></div><a id="chat" hidden>Open Pi Web chat ↗</a></header>
+<div class="layout">
+<section aria-label="Submit and select tasks">
+<form id="form"><label for="task">Describe a task</label><textarea id="task" required placeholder="Use the sequence-summary Skill to summarize data/sequences.fasta and save summary.json."></textarea><div class="actions"><button class="primary" id="submit" type="submit">Run task</button><span class="muted" id="activity" role="status" aria-live="polite">Ready</span></div><p class="muted">Each run saves its outputs and any configured checks.</p></form>
+<p class="error" id="error" role="alert" hidden></p>
+<section class="run-list"><h2>Runs</h2><div id="runs" role="list"><p class="empty">No runs yet. Submit your first task above.</p></div></section>
+</section>
+<section class="detail" aria-label="Selected run"><div id="empty" class="empty">Select a run to see its results and files.</div><div id="detail" hidden><div class="detail-top"><div><h2>Task result</h2><p class="muted path" id="run-id"></p></div><button id="recheck" type="button">Recheck</button></div><p class="task-text" id="run-task"></p><dl><div><dt>Execution</dt><dd id="execution"></dd></div><div><dt>Delivery</dt><dd id="delivery"></dd></div></dl><p class="error" id="run-error" hidden></p><h3>Files</h3><ul id="files"></ul><h3>Checks</h3><div id="checks"></div><section id="response-section" hidden><h3>Response</h3><pre id="response"></pre></section><details><summary>Run record</summary><pre id="record"></pre></details></div></section>
+</div>
+</main>
+<script>
+const $ = id => document.getElementById(id);
+let selected, busy = false, submitting = false, listSignature, newest, followAfter;
+async function api(path, data) {
+  const response = await fetch(path, data === undefined ? {} : {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)});
+  const result = await response.json();
+  if (!response.ok) throw new Error(result.error?.message || 'Request failed');
+  return result;
+}
+function showError(message) { $('error').textContent = message || ''; $('error').hidden = !message; }
+function controls() { $('submit').disabled = busy || submitting; $('recheck').disabled = busy || submitting; $('activity').textContent = busy ? 'Task running…' : submitting ? 'Submitting…' : 'Ready'; }
+async function showRun(id) {
+  const {run, check} = await api('/api/run?id='+encodeURIComponent(id));
+  $('empty').hidden=true; $('detail').hidden=false;
+  $('run-id').textContent=run.id; $('run-task').textContent=run.task;
+  for (const field of ['execution','delivery']) { $(field).textContent=run[field]; $(field).className=run[field]==='passed'?'passed':run[field]==='failed'?'failed':''; }
+  $('run-error').textContent=run.error || ''; $('run-error').hidden=!run.error;
+  $('recheck').disabled=busy || submitting || run.execution==='running';
+  $('files').replaceChildren();
+  for (const path of run.artifacts) { const li=document.createElement('li'), a=document.createElement('a'); a.href='/api/artifact?id='+encodeURIComponent(id)+'&path='+encodeURIComponent(path); a.textContent=path; li.append(a); $('files').append(li); }
+  if (!run.artifacts.length) { const li=document.createElement('li'); li.textContent='No deliverable files recorded.'; $('files').append(li); }
+  $('checks').replaceChildren();
+  if (check) { const pre=document.createElement('pre'); pre.textContent=JSON.stringify(check,null,2); $('checks').append(pre); }
+  else { const p=document.createElement('p'); p.className='muted'; p.textContent=run.execution==='running'?'Checks run after execution completes.':'No check report. Configure a checker to validate deliveries.'; $('checks').append(p); }
+  $('response').textContent=run.text || ''; $('response-section').hidden=!run.text;
+  $('record').textContent=JSON.stringify(run,null,2);
+}
+async function refresh() {
+  const data=await api('/api/runs'); busy=data.busy; controls();
+  $('project').textContent=data.root; $('chat').href=data.chatUrl; $('chat').hidden=false;
+  showError(data.error || data.issues.map(issue=>issue.id+': '+issue.message).join('\n'));
+  if (followAfter!==undefined && data.runs.length && data.runs[0].id!==followAfter) { selected=data.runs[0].id; followAfter=undefined; }
+  newest=data.runs[0]?.id || null;
+  if (!selected && data.runs.length) selected=data.runs[0].id;
+  const signature=JSON.stringify([data.runs,selected]);
+  if (signature!==listSignature) {
+    listSignature=signature; $('runs').replaceChildren();
+    for (const run of data.runs) {
+      const row=document.createElement('div'); row.setAttribute('role','listitem');
+      const button=document.createElement('button'); button.type='button'; button.className='run'; button.setAttribute('aria-pressed',String(selected===run.id));
+      const left=document.createElement('span'), title=document.createElement('strong'), time=document.createElement('small'); title.textContent=run.task; time.textContent=new Date(run.startedAt).toLocaleString(); left.append(title,time);
+      const right=document.createElement('span'); right.className='states'; for (const value of [run.execution,run.delivery]) { const state=document.createElement('span'); state.textContent=value; right.append(state); }
+      button.append(left,right); button.onclick=()=>{followAfter=undefined;selected=run.id; refresh().catch(error=>showError(error.message));}; row.append(button); $('runs').append(row);
+    }
+    if (!data.runs.length) { const p=document.createElement('p');p.className='empty';p.textContent='No runs yet. Submit your first task above.';$('runs').append(p); }
+  }
+  if (selected) await showRun(selected);
+}
+$('form').onsubmit=async event=>{
+  event.preventDefault(); submitting=true; controls(); showError();
+  try { const previous=newest; await api('/api/run',{task:$('task').value}); followAfter=previous || null; selected=undefined; await refresh(); }
+  catch(error) { showError(error.message); }
+  finally { submitting=false; controls(); }
+};
+$('recheck').onclick=async()=>{
+  submitting=true;controls();showError();
+  try { await api('/api/check',{id:selected});await refresh(); }
+  catch(error) {showError(error.message);}
+  finally {submitting=false;controls();}
+};
+async function poll() { try {await refresh();}catch(error){showError(error.message);} setTimeout(poll,1500); }
+poll();
+</script>
+</body>
+</html>

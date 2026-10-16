@@ -12,7 +12,7 @@ try {
   } else {
     if (positionals.length > 1) throw new Error('Expected at most one destination directory.');
     const directory = await scaffold(positionals[0]);
-    console.log(`Created ${directory}\nInstall dependencies there, then run npm run ui or npm run run -- "Your task".`);
+    console.log(`Created ${directory}\nInstall dependencies there, review the project, then run npx lab-agent trust. Start npm run ui or npm run run -- "Your task".`);
   }
 } catch (error) {
   console.error(error instanceof Error ? error.message : error);

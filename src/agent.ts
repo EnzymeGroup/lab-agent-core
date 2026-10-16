@@ -1,10 +1,12 @@
 import { resolve } from 'node:path';
+import { existsSync } from 'node:fs';
 import {
   createAgentSession,
+  createMcpExtension, createCodemodeExtension, createToolSearchExtension,
   DefaultResourceLoader, getAgentDir, SettingsManager,
   type AgentSession, type CreateAgentSessionOptions,
 } from '@earendil-works/pi-coding-agent';
-import type { AgentConfig } from './config.js';
+import { requireProjectTrust, type AgentConfig } from './config.js';
 import { checkRun, createRun, listArtifacts, writeRun, type RunRecord } from './delivery.js';
 
 export type NativeSessionOptions = Omit<CreateAgentSessionOptions, 'cwd'>;
@@ -14,12 +16,36 @@ export interface LabAgent {
   dispose(): Promise<void>;
 }
 
+/** Execution failed after a run was created; its terminal record is still available. */
+export class RunError extends Error {
+  constructor(readonly run: RunRecord, cause: unknown) {
+    super(run.error ?? 'Agent task failed.', { cause });
+    this.name = 'RunError';
+  }
+}
+
 export async function createAgent(config: AgentConfig, options: NativeSessionOptions = {}): Promise<LabAgent> {
   const root = resolve(config.root);
   const agentDir = options.agentDir ?? getAgentDir();
-  const settingsManager = options.settingsManager ?? SettingsManager.create(root, agentDir, { projectTrusted: true });
+  if (!options.settingsManager?.isProjectTrusted()) requireProjectTrust(root, agentDir);
+  const settingsManager = options.settingsManager ?? SettingsManager.create(root, agentDir);
   const resourceLoader = options.resourceLoader ?? new DefaultResourceLoader({
     cwd: root, agentDir, settingsManager,
+    extensionFactories: [
+      { name: 'codemode', factory: createCodemodeExtension(), builtin: true, replaceable: true },
+      { name: 'tool-search', factory: createToolSearchExtension(), builtin: true, replaceable: true },
+      { name: 'mcp', builtin: true, replaceable: true, factory: pi => {
+        // Pi 1.2.0's MCP factory uses the process directory for config/auth/logs.
+        // Never let a per-session directory silently use another directory's credentials.
+        if (resolve(agentDir) !== resolve(getAgentDir())) {
+          if ([resolve(agentDir, 'mcp.json'), resolve(root, '.pi/mcp.json')].some(existsSync) || pi.getMcpServers().length) {
+            throw new Error('Pi MCP requires PI_CODING_AGENT_DIR to match this session\'s agentDir. Set it before starting the process, or disable builtin:mcp in native settings.');
+          }
+          return;
+        }
+        return createMcpExtension()(pi);
+      } },
+    ],
   });
   if (!options.resourceLoader) await resourceLoader.reload();
   const { session, extensionsResult } = await createAgentSession({
@@ -95,6 +121,7 @@ export async function createAgent(config: AgentConfig, options: NativeSessionOpt
           // Preserve the execution error even if the tool also removed its output directory.
           run.artifacts = await listArtifacts(run.directory).catch(() => run!.artifacts);
           await writeRun(run);
+          throw new RunError(run, error);
         }
         throw error;
       } finally {

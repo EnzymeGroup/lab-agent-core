@@ -12,9 +12,10 @@ native tools, filesystem, subprocesses and upstream UI.
 | Check | Result |
 | --- | --- |
 | TypeScript type checking and build | Passed |
-| Runtime/config/delivery/model-selection tests | 24 passed |
+| Runtime/config/delivery/model-selection/boundary tests | 30 passed |
 | Packed-package consumers | TS, Python and documented sequence example passed (4 test-runner entries including parent suite) |
 | Published Pi Web integration | 1 passed |
+| Core task HTTP integration | 1 passed |
 | Actual Chromium desktop/mobile interaction | Passed; no page or console errors |
 
 Runtime coverage includes project instructions, native skills/extensions,
@@ -41,12 +42,31 @@ partial-delivery exit status, and invalid invocation are also exercised.
 
 UI tests cover real chat, tool SSE events, extension discovery, persisted sessions
 after restart, files, uploads/downloads, generation abort and process shutdown.
+The same stdio MCP fixture is called through SDK, CLI and Pi Web using native
+factories and the project's `.pi/mcp.json`. Tests verify explicit trust before
+config evaluation, revocation, failed RunRecord JSON, canonical run boundaries,
+symlink rejection, MCP shutdown, native exclusions/replacements and inspect
+without model requests. A mismatched SDK/process MCP directory fails explicitly.
+
+Task HTTP coverage submits the real `agent.run()` path, reads run/check records,
+downloads actual output, rechecks without inference, records model errors,
+rejects unknown model defaults without fallback, releases the busy slot after
+setup failure, and saves aborted work on shutdown. Cross-origin/Host requests,
+concurrent submissions and escaped artifact paths are rejected.
+
 Browser checks submit chat through the actual composer, expand tool results,
 reopen mobile history and verify no horizontal overflow. Test processes are stopped.
+The new task page is also exercised through Chromium: submit the shipped FASTA
+example, download the computed JSON, deliberately change a length, recheck to a
+failed delivery, and restart the listener to rediscover that persisted result.
+Light/dark views and keyboard focus were checked. Viewports 375, 768, 1024 and
+1440 pixels had no horizontal overflow; page/console errors were zero.
 
 Local review evidence is in `.test-artifacts/`: `verify.log`, `onboarding-consumers.log`, `browser-qa.json`,
 `ui-desktop.png`, `ui-mobile.png`. Generated evidence is not included in the npm
 package. CI uploads the installable tarball.
+This revision adds `runtime-verify.log`, `tasks-browser.json`,
+`tasks-desktop.png`, `tasks-mobile.png` and `tasks-dark.png`.
 
 ## Scope and limits
 
@@ -57,10 +77,14 @@ package. CI uploads the installable tarball.
 - No independent newcomer usability study was performed; the installed example
   verifies execution, not ease of learning. [ONBOARDING.md](ONBOARDING.md) provides
   a proposed two-participant exercise with explicitly unmeasured time targets.
-- SDK uses native SDK defaults; UI-specific built-ins and in-memory SDK overrides
+- Core's default loader adds native MCP/codemode/tool-search factories and honors
+  native settings. Arbitrary caller-provided loaders and UI-specific behavior
   are not promised to be identical. See CONVENTIONS.md.
-- Native UI/RPC chats do not automatically create Core delivery records;
-  `agent.run()` is the standard checked-delivery path.
+- Native chat/RPC does not create Core delivery records. The task page does,
+  through the same `agent.run()` path as CLI/SDK. It is a trusted local interface,
+  not an authenticated multi-user task service.
+- A direct Pi-versus-Core project comparison has not been conducted; no measured
+  reduction in development time or code volume is claimed.
 
 ## Release procedure
 

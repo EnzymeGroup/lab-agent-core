@@ -1,3 +1,4 @@
+import { ProjectTrustStore } from '@earendil-works/pi-coding-agent';
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 import { once } from 'node:events';
@@ -5,6 +6,7 @@ import { mkdtemp, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { createServer } from 'node:net';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { setTimeout as delay } from 'node:timers/promises';
 import test from 'node:test';
 import { lastUserText, startModelServer, writeModelConfig } from './fixtures/model-server.mjs';
@@ -40,12 +42,18 @@ export default function (pi) {
   pi.registerCommand('ui-fixture', { description: 'UI fixture resource loaded', handler: async () => {} });
 }
 `);
+  await writeFile(join(root, '.pi/mcp.json'), JSON.stringify({ mcpServers: { lab: {
+    command: process.execPath, args: [fileURLToPath(new URL('./fixtures/mcp-server.mjs', import.meta.url))], exposure: 'direct',
+  } } }));
   const fixture = await startModelServer(request => {
     if (lastUserText(request).includes('wait for abort')) return { text: 'Too late', delayMs: 30000 };
+    if (lastUserText(request).includes('Use MCP double')) return request.messages.at(-1).role === 'tool'
+      ? { text: 'Native MCP returned 42.' } : { toolCalls: [{ name: 'mcp__lab__double', arguments: { value: 21 } }] };
     if (request.messages.at(-1).role === 'tool') return { text: 'UI artifact written.' };
     return { toolCalls: [{ name: 'write', arguments: { path: 'output/ui.txt', content: 'UI artifact\n' } }] };
   });
   await writeModelConfig(agentDir, fixture.baseUrl);
+  new ProjectTrustStore(agentDir).set(root, true);
   const modelsFile = join(agentDir, 'models.json');
   const models = JSON.parse(await readFile(modelsFile, 'utf8'));
   models.providers.fixture.models.push({ ...models.providers.fixture.models[0], id: 'project-fixture' });
@@ -57,6 +65,7 @@ export default function (pi) {
   let child;
   let logs = '';
   let closed;
+  let taskUrl;
   const start = async () => {
     child = spawn(process.execPath, ['--input-type=module', '-e',
       `import { launchUI } from ${JSON.stringify(uiModule)}; process.exitCode = await launchUI({root:process.argv[1]}, {port:Number(process.argv[2])});`, root, String(port)], {
@@ -72,12 +81,15 @@ export default function (pi) {
       try { return (await fetch(`${base}/api/sessions`)).ok; } catch { return false; }
     }, 30000);
     await until(() => logs.includes(`?cwd=${encodeURIComponent(root)}`));
+    taskUrl = await until(() => logs.match(/Task deliveries: (http:\/\/[^\s]+)\n/)?.[1]);
+    assert.match(await (await fetch(taskUrl)).text(), /Describe a task/);
   };
   const stop = async () => {
     child.kill('SIGTERM');
     const [code] = await Promise.race([closed, delay(15000, undefined, { ref: false }).then(() => { throw new Error(`UI failed to stop\n${logs}`); })]);
     assert.ok(code === 0 || code === 143, `Unexpected UI exit ${code}\n${logs}`);
     await assert.rejects(fetch(`${base}/api/sessions`, { signal: AbortSignal.timeout(1000) }));
+    await assert.rejects(fetch(taskUrl, { signal: AbortSignal.timeout(1000) }));
     child = undefined;
   };
   t.after(async () => {
@@ -122,6 +134,8 @@ export default function (pi) {
   assert.match(eventText, /UI artifact written/);
   assert.match(JSON.stringify(await api(`/api/sessions/${id}`)), /UI artifact written/);
   assert.ok((await api('/api/sessions?force=1')).sessions.some(session => session.id === id));
+  await api(`/api/agent/${id}`, { type: 'prompt', message: 'Use MCP double on 21' });
+  await until(() => eventText.includes('mcp__lab__double') && eventText.includes('Native MCP returned 42'));
 
   const listing = await api(filePath(join(root, 'output')));
   assert.ok(listing.entries.some(entry => entry.name === 'ui.txt'));
