@@ -1,0 +1,32 @@
+{
+  "name": "lab-agent-core",
+  "version": "0.1.0",
+  "description": "A small Pi SDK application kit with delivery checks, CLI and Pi Web integration",
+  "license": "MIT",
+  "type": "module",
+  "engines": { "node": ">=22.19.0" },
+  "exports": { ".": { "types": "./dist/index.d.ts", "import": "./dist/index.js" } },
+  "bin": { "lab-agent": "dist/cli.js", "create-lab-agent": "dist/create.js" },
+  "files": ["dist", "templates", "docs", "README.md", "LICENSE"],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "check": "tsc -p tsconfig.json --noEmit",
+    "test": "node --test tests/unit/*.test.mjs",
+    "test:consumers": "node --test tests/consumers/*.test.mjs",
+    "test:ui": "node --test tests/ui.test.mjs",
+    "verify": "npm run check && npm run build && npm test && npm run test:consumers && npm run test:ui",
+    "prepack": "npm run build"
+  },
+  "dependencies": {
+    "@agegr/pi-web": "0.12.2",
+    "@earendil-works/pi-coding-agent": "1.2.0",
+    "@earendil-works/pi-agent-core": "1.2.0",
+    "@earendil-works/pi-ai": "1.2.0",
+    "@earendil-works/pi-codemode": "1.2.0",
+    "@earendil-works/pi-mcp": "1.2.0",
+    "@earendil-works/pi-telemetry": "1.2.0",
+    "@earendil-works/pi-tui": "1.2.0",
+    "jiti": "2.7.0"
+  },
+  "devDependencies": { "@types/node": "22.19.19", "typescript": "5.9.3" }
+}
