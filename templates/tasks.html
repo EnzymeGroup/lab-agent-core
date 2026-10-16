@@ -27,22 +27,25 @@ main{max-width:1220px;margin:auto;padding:40px 32px 64px}header{display:flex;ali
 </main>
 <script>
 const $ = id => document.getElementById(id);
-let selected, busy = false, submitting = false, listSignature, newest, followAfter;
+let selected, busy = false, submitting = false, listSignature, detailSignature, newest, followAfter;
 async function api(path, data) {
   const response = await fetch(path, data === undefined ? {} : {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)});
   const result = await response.json();
   if (!response.ok) throw new Error(result.error?.message || 'Request failed');
   return result;
 }
-function showError(message) { $('error').textContent = message || ''; $('error').hidden = !message; }
-function controls() { $('submit').disabled = busy || submitting; $('recheck').disabled = busy || submitting; $('activity').textContent = busy ? 'Task running…' : submitting ? 'Submitting…' : 'Ready'; }
+function showError(message) { if ($('error').textContent !== (message || '')) $('error').textContent = message || ''; $('error').hidden = !message; }
+function controls() { $('submit').disabled = busy || submitting; $('recheck').disabled = busy || submitting; const state = busy ? 'Task running…' : submitting ? 'Submitting…' : 'Ready'; if ($('activity').textContent !== state) $('activity').textContent = state; }
 async function showRun(id) {
   const {run, check} = await api('/api/run?id='+encodeURIComponent(id));
+  $('recheck').disabled=busy || submitting || run.execution==='running';
+  const signature=JSON.stringify([run,check]);
+  if (signature===detailSignature) return;
+  detailSignature=signature;
   $('empty').hidden=true; $('detail').hidden=false;
   $('run-id').textContent=run.id; $('run-task').textContent=run.task;
   for (const field of ['execution','delivery']) { $(field).textContent=run[field]; $(field).className=run[field]==='passed'?'passed':run[field]==='failed'?'failed':''; }
   $('run-error').textContent=run.error || ''; $('run-error').hidden=!run.error;
-  $('recheck').disabled=busy || submitting || run.execution==='running';
   $('files').replaceChildren();
   for (const path of run.artifacts) { const li=document.createElement('li'), a=document.createElement('a'); a.href='/api/artifact?id='+encodeURIComponent(id)+'&path='+encodeURIComponent(path); a.textContent=path; li.append(a); $('files').append(li); }
   if (!run.artifacts.length) { const li=document.createElement('li'); li.textContent='No deliverable files recorded.'; $('files').append(li); }
