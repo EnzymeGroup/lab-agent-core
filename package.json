@@ -7,7 +7,7 @@
   "engines": { "node": ">=22.19.0" },
   "exports": { ".": { "types": "./dist/index.d.ts", "import": "./dist/index.js" } },
   "bin": { "lab-agent": "dist/cli.js", "create-lab-agent": "dist/create.js" },
-  "files": ["dist", "templates", "docs", "README.md", "LICENSE"],
+  "files": ["dist", "templates", "docs", "examples", "README.md", "LICENSE"],
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "check": "tsc -p tsconfig.json --noEmit",

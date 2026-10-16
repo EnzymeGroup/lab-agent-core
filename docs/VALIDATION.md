@@ -13,7 +13,7 @@ native tools, filesystem, subprocesses and upstream UI.
 | --- | --- |
 | TypeScript type checking and build | Passed |
 | Runtime/config/delivery/model-selection tests | 24 passed |
-| Packed-package consumers | Both TS and Python projects passed (3 test-runner entries including parent suite) |
+| Packed-package consumers | TS, Python and documented sequence example passed (4 test-runner entries including parent suite) |
 | Published Pi Web integration | 1 passed |
 | Actual Chromium desktop/mobile interaction | Passed; no page or console errors |
 
@@ -30,18 +30,21 @@ settings, transient overrides, session restoration, and rejection of missing
 credentials, incomplete pairs and unknown models without fallback inference.
 The native UI new-session path is also checked against project model defaults.
 
-Two external consumers install an actual npm tarball outside this repository,
+Three external consumers install an actual npm tarball outside this repository,
 without workspace links. One runs a TypeScript extension through the public API;
-the other runs Python through native Bash and validates output with an independent
-Python checker. CLI creation, JSON output, rechecking without a model call,
-partial-delivery exit status, and invalid invocation are exercised.
+one runs Python through native Bash and validates output with an independent
+Python checker. The third copies the shipped sequence-summary example unchanged,
+discovers its Skill, reads it with Pi's native tool, runs its Python CLI workflow,
+and checks actual source IDs/count/lengths. Tampered lengths and missing output
+both fail rechecking without making model calls. CLI creation, JSON output,
+partial-delivery exit status, and invalid invocation are also exercised.
 
 UI tests cover real chat, tool SSE events, extension discovery, persisted sessions
 after restart, files, uploads/downloads, generation abort and process shutdown.
 Browser checks submit chat through the actual composer, expand tool results,
 reopen mobile history and verify no horizontal overflow. Test processes are stopped.
 
-Local review evidence is in `.test-artifacts/`: `verify.log`, `browser-qa.json`,
+Local review evidence is in `.test-artifacts/`: `verify.log`, `onboarding-consumers.log`, `browser-qa.json`,
 `ui-desktop.png`, `ui-mobile.png`. Generated evidence is not included in the npm
 package. CI uploads the installable tarball.
 
@@ -51,8 +54,9 @@ package. CI uploads the installable tarball.
 - No live model provider was configured. Remote-model inference quality and
   credentials are not validated by deterministic tests.
 - Browser QA covered Chromium on Linux, not other browsers or operating systems.
-- No independent newcomer usability study was performed; runnable TS/Python
-  consumer examples verify the documented integration paths.
+- No independent newcomer usability study was performed; the installed example
+  verifies execution, not ease of learning. [ONBOARDING.md](ONBOARDING.md) provides
+  a proposed two-participant exercise with explicitly unmeasured time targets.
 - SDK uses native SDK defaults; UI-specific built-ins and in-memory SDK overrides
   are not promised to be identical. See CONVENTIONS.md.
 - Native UI/RPC chats do not automatically create Core delivery records;

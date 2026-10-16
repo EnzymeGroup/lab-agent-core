@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
-import { mkdtemp, mkdir, readFile, realpath, rm, writeFile } from 'node:fs/promises';
+import { cp, mkdtemp, mkdir, readFile, realpath, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -56,6 +56,7 @@ test('packed package works in independent TS and Python projects', { timeout: 24
   const packed = JSON.parse(packOutput.slice(packOutput.indexOf('[\n')))[0];
   const tarball = join(scratch, packed.filename);
   assert.ok(packed.files.some(file => file.path === 'templates/minimal/agent.config.ts'));
+  assert.ok(packed.files.some(file => file.path === 'examples/sequence-summary/.agents/skills/sequence-summary/SKILL.md'));
 
   await t.test('TypeScript native extension through installed public SDK', async t => {
     const installation = join(scratch, 'typescript');
@@ -98,6 +99,48 @@ try { console.log(JSON.stringify(await agent.run('Produce TS result'))); } final
     assert.deepEqual(run.artifacts, ['output/result.json']);
     assert.deepEqual(JSON.parse(await readFile(join(run.directory, 'output/result.json'), 'utf8')), { value: 42 });
     assert.ok(server.requests[0].tools.some(tool => tool.function.name === 'write_result'));
+  });
+
+  await t.test('documented sequence example runs unchanged from the installed package', async t => {
+    const root = join(scratch, 'sequence-example');
+    const cli = await install(root, tarball);
+    await cp(join(root, 'node_modules/lab-agent-core/examples/sequence-summary'), root, { recursive: true });
+    const skill = '.agents/skills/sequence-summary/SKILL.md';
+    const quote = value => `'${value.replaceAll("'", "'\\''")}'`;
+    const server = await startModelServer((request, index) => {
+      if (index === 0) return { toolCalls: [{ name: 'read', arguments: { path: skill } }] };
+      if (index === 1) return { toolCalls: [{ name: 'bash', arguments: {
+        command: `python3 scripts/summarize.py data/sequences.fasta ${quote(join(outputDirectory(request), 'summary.json'))}`,
+      } }] };
+      return { text: 'Summarized two synthetic teaching sequences using the Python script.' };
+    });
+    t.after(() => server.close());
+    const agentDir = join(scratch, 'example-model-config');
+    await writeModelConfig(agentDir, server.baseUrl);
+    const env = { ...process.env, PI_CODING_AGENT_DIR: agentDir };
+    const run = JSON.parse(success(await command('python3', ['workflows/run.py'], { cwd: root, env })));
+    assert.equal(run.execution, 'completed');
+    assert.equal(run.delivery, 'passed');
+    assert.deepEqual(run.artifacts, ['output/summary.json']);
+    const reportFile = join(run.directory, 'output/summary.json');
+    assert.deepEqual(JSON.parse(await readFile(reportFile, 'utf8')), {
+      source: 'data/sequences.fasta', sequence_count: 2,
+      sequences: [{ id: 'sample_a', length: 10 }, { id: 'sample_b', length: 6 }],
+    });
+    assert.match(JSON.stringify(server.requests[0].messages), /Summarize FASTA record IDs/);
+    assert.match(await readFile(run.session.file, 'utf8'), /Summarized 2 sequences/);
+    const requestsBefore = server.requests.length;
+    const recheck = () => command(process.execPath, [cli, 'check', run.directory, '--json'], { cwd: root, env });
+    assert.equal(JSON.parse(success(await recheck())).delivery, 'passed');
+    const changed = JSON.parse(await readFile(reportFile, 'utf8'));
+    changed.sequences[0].length = 999;
+    await writeFile(reportFile, JSON.stringify(changed));
+    const invalid = await recheck();
+    assert.equal(invalid.code, 1);
+    assert.equal(JSON.parse(invalid.stdout).delivery, 'failed');
+    await rm(reportFile);
+    assert.equal((await recheck()).code, 1, 'missing report must also fail independently');
+    assert.equal(server.requests.length, requestsBefore, 'rechecks must not call a model');
   });
 
   await t.test('Python script via native bash tool and CLI run/check JSON', async t => {

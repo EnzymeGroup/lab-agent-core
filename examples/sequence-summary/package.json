@@ -1,0 +1,15 @@
+{
+  "name": "sequence-summary-agent",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": { "node": ">=22.19.0" },
+  "scripts": {
+    "dev": "lab-agent dev",
+    "run": "lab-agent run",
+    "check": "lab-agent check",
+    "ui": "lab-agent ui",
+    "workflow": "python3 workflows/run.py"
+  },
+  "dependencies": { "lab-agent-core": "0.1.0" }
+}
